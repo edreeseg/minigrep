@@ -19,28 +19,37 @@ impl Config {
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.filename)?;
-    let contents = contents.split("\n");
-    let mut results: Vec<String> = Vec::new();
-    for (i, line) in contents.enumerate() {
-        let mut line = line;
-        let mut offset = 0;
-        while let Some(n) = line.find(&config.query) {
-            results.push(format!(
-                "({}, {})",
-                (i + 1).to_string(),
-                (n + 1 + offset).to_string()
-            ));
-            offset += n + 1;
-            line = &line[n + 1..];
-        }
-    }
+    let results = search(&config.query, &contents);
     if results.len() > 0 {
         println!(
-            "Matches for query found at (line, char): {}",
-            results.join(", ")
+            "{}",
+            results.join("\n")
         );
     } else {
         println!("No matches found for query.");
     }
     Ok(())
+}
+
+fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+    let contents = contents.split("\n");
+    let results: Vec<&str> = contents.filter(|x| { x.find(query).is_some() })
+        .collect();
+    results
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn one_result() {
+        let query = "duct";
+        let contents = "\
+Rust:
+safe, fast, productive.
+Pick three.";
+
+        assert_eq!(vec!["safe, fast, productive."], search(query, contents));
+    }
 }
