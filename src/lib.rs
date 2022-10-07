@@ -1,11 +1,11 @@
+use std::env;
 use std::error::Error;
 use std::fs;
-use std::env;
 
 pub struct Config {
     pub query: String,
     pub filename: String,
-    pub case_sensitive: bool,
+    pub case_insensitive: bool,
 }
 
 impl Config {
@@ -15,30 +15,31 @@ impl Config {
         }
         let query = args[1].clone();
         let filename = args[2].clone();
-        let case_sensitive = env::var("CASE_INSENSITIVE").is_err();
-        Ok(Config { query, filename, case_sensitive })
+        let ignore_case_arg = args[3..]
+            .iter()
+            .find(|x| ["-y", "-i", "--ignore-case"].contains(&x.as_str()))
+            .is_some();
+        let case_insensitive = ignore_case_arg || env::var("CASE_INSENSITIVE").is_ok();
+        Ok(Config {
+            query,
+            filename,
+            case_insensitive,
+        })
     }
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.filename)?;
-    let results = if config.case_sensitive {
-        search(&config.query, &contents)
-    } else {
+    let results = if config.case_insensitive {
         search_case_insensitive(&config.query, &contents)
+    } else {
+        search(&config.query, &contents)
     };
     for line in results {
         println!("{}", line);
     }
     Ok(())
 }
-
-// fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-//     let contents = contents.split("\n");
-//     let results: Vec<&str> = contents.filter(|x| { x.find(query).is_some() })
-//         .collect();
-//     results
-// }
 
 fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
     let mut results: Vec<&str> = Vec::new();
@@ -86,6 +87,9 @@ safe, fast, productive.
 Pick three.
 Trust me.";
 
-        assert_eq!(vec!["Rust:", "Trust me."], search_case_insensitive(query, contents));
+        assert_eq!(
+            vec!["Rust:", "Trust me."],
+            search_case_insensitive(query, contents)
+        );
     }
 }
